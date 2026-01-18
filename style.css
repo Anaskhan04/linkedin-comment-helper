@@ -1,0 +1,73 @@
+/* Styles for LinkedIn Comment Helper Button */
+
+.linkedin-comment-helper-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  margin-left: 8px;
+  background: linear-gradient(135deg, #0a66c2 0%, #0077b5 100%);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(10, 102, 194, 0.15);
+}
+
+.linkedin-comment-helper-btn:hover {
+  background: linear-gradient(135deg, #004182 0%, #005885 100%);
+  box-shadow: 0 4px 8px rgba(10, 102, 194, 0.25);
+  transform: translateY(-1px);
+}
+
+.linkedin-comment-helper-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(10, 102, 194, 0.2);
+}
+
+.linkedin-comment-helper-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Notification styles */
+.linkedin-comment-helper-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 16px 24px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 999999;
+  opacity: 0;
+  transform: translateX(400px);
+  transition: all 0.3s ease;
+}
+
+.linkedin-comment-helper-notification.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.linkedin-comment-helper-notification.success {
+  border-left: 4px solid #057642;
+  color: #057642;
+}
+
+.linkedin-comment-helper-notification.error {
+  border-left: 4px solid #cc1016;
+  color: #cc1016;
+}
+
+.linkedin-comment-helper-notification.info {
+  border-left: 4px solid #0a66c2;
+  color: #0a66c2;
+}
