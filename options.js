@@ -5,7 +5,7 @@ const successAlert = document.getElementById('successAlert');
 const errorAlert = document.getElementById('errorAlert');
 
 async function loadSettings() {
-  const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel']);
+  const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel', 'systemPrompt']);
   
   if (result.apiKey) {
     document.getElementById('apiKey').value = result.apiKey;
@@ -16,6 +16,9 @@ async function loadSettings() {
   
   // FIX: Updated default to 2.5 Flash to match HTML
   document.getElementById('apiModel').value = result.apiModel || 'gemini-2.5-flash';
+  if (result.systemPrompt) {
+    document.getElementById('systemPrompt').value = result.systemPrompt;
+  }
 }
 
 form.addEventListener('submit', async (e) => {
@@ -24,6 +27,7 @@ form.addEventListener('submit', async (e) => {
   const apiKey = document.getElementById('apiKey').value.trim();
   const apiEndpoint = document.getElementById('apiEndpoint').value.trim();
   const apiModel = document.getElementById('apiModel').value;
+  const systemPrompt = document.getElementById('systemPrompt').value.trim();
   
   if (!apiKey) {
     showError();
@@ -33,7 +37,8 @@ form.addEventListener('submit', async (e) => {
   await chrome.storage.sync.set({
     apiKey: apiKey,
     apiEndpoint: apiEndpoint,
-    apiModel: apiModel
+    apiModel: apiModel,
+    systemPrompt: systemPrompt
   });
   
   showSuccess();

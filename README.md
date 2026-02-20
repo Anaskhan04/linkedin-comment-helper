@@ -77,6 +77,10 @@ For other providers:
 - **gemini-2.5-pro**: Smarter but slower and more expensive
 - **gemini-2.0-flash**: Backup option
 
+### Custom Prompt
+- You can optionally set your own default prompt in the extension settings
+- Leave it empty to use the built-in LinkedIn comment prompt
+
 ## 📝 Comment Generation Rules
 
 The extension follows strict guidelines:

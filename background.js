@@ -12,11 +12,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleGenerateComment(postContent) {
-  // 1. GET SETTINGS (OR USE HARDCODED DEFAULTS)
-  const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel']);
+  const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel', 'systemPrompt']);
   
   const MY_API_KEY = "";
   const DEFAULT_MODEL = "gemini-2.5-flash";
+  const DEFAULT_PROMPT = "You are a professional LinkedIn comment generator. Your task is to generate a unique, thoughtful comment (18-22 words) that adds real value or perspective. Comments must sound natural, human, and match the tone of a genuine LinkedIn professional. Avoid generic phrases such as Great post or Very informative. Do not use exclamation marks, hyphens, or symbols like -- or !!!. You may use one relevant emoji only if it fits naturally and maintains professionalism. Each comment must be supportive, insightful, or provide a meaningful observation tailored to the post.";
 
   const apiKey = (result.apiKey || MY_API_KEY).trim();
   const model = (result.apiModel || DEFAULT_MODEL).trim();
@@ -27,7 +27,8 @@ async function handleGenerateComment(postContent) {
     throw new Error('API key is missing.');
   }
 
-  const systemPrompt = "You are a professional LinkedIn comment generator.you task is to genearate a unique, thoughtful comment (18-22 words) that adds real value or perspective. Comments must sound natural, human, and match the tone of a genuine LinkedIn professional. Avoid generic phrases such as Great post or Very informative. Do not use exclamation marks, hyphens, or symbols like -- or !!!. You may use one relevant emoji only if it fits naturally and maintains professionalism. . Each comment must be supportive, insightful, or provide a meaningful observation tailored to the post.";
+  const storedPrompt = typeof result.systemPrompt === 'string' ? result.systemPrompt.trim() : '';
+  const systemPrompt = storedPrompt.length > 0 ? storedPrompt : DEFAULT_PROMPT;
 
   try {
     let finalUrl, requestBody, headers = { 'Content-Type': 'application/json' };
