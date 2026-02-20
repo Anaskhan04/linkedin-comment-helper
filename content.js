@@ -1,35 +1,101 @@
 // content.js - AGGRESSIVE DEBUG VERSION
-console.log('🚀 LinkedIn Comment Helper: STARTED');
+console.log('LinkedIn Comment Helper: content script started');
 
-// Run immediately, then every 2 seconds to fight lazy loading
 injectButtons();
 setInterval(injectButtons, 2000);
 
+function showNotification(message, type) {
+  const existing = document.querySelector('.linkedin-comment-helper-notification');
+  if (existing) {
+    existing.remove();
+  }
+  const el = document.createElement('div');
+  el.className = 'linkedin-comment-helper-notification';
+  if (type) {
+    el.classList.add(type);
+  }
+  el.textContent = message;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    el.classList.add('show');
+  });
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 3000);
+}
+
+function findPostContainerFromBar(bar) {
+  if (!bar) {
+    return null;
+  }
+  const byDataUrn = bar.closest('div[data-urn]');
+  if (byDataUrn) {
+    return byDataUrn;
+  }
+  const legacy = bar.closest('.feed-shared-update-v2');
+  if (legacy) {
+    return legacy;
+  }
+  const generic = bar.closest('article');
+  if (generic) {
+    return generic;
+  }
+  return bar;
+}
+
+function getPostTextFromContainer(container) {
+  if (!container) {
+    return '';
+  }
+  const selectors = [
+    '.update-components-text span',
+    '.feed-shared-update-v2__description-text',
+    '[data-test-id="post-content"]',
+    'span.break-words',
+    'div[dir="ltr"] span',
+    'p[dir="ltr"]'
+  ];
+  for (let i = 0; i < selectors.length; i++) {
+    const el = container.querySelector(selectors[i]);
+    if (el && el.innerText && el.innerText.trim().length > 0) {
+      return el.innerText.trim();
+    }
+  }
+  let current = container.parentElement;
+  let depth = 0;
+  while (current && depth < 5) {
+    for (let i = 0; i < selectors.length; i++) {
+      const el = current.querySelector(selectors[i]);
+      if (el && el.innerText && el.innerText.trim().length > 0) {
+        return el.innerText.trim();
+      }
+    }
+    current = current.parentElement;
+    depth++;
+  }
+  return '';
+}
+
 function injectButtons() {
-  // 1. Find all possible containers for comment buttons
-  // We look for the specific wrapper class LinkedIn uses for action bars
   const bars = document.querySelectorAll('.feed-shared-social-action-bar, .social-actions-bar, .comment-social-bar');
-  
   if (bars.length === 0) {
-    // If standard bars aren't found, try finding "Like" buttons and getting their parent
-    // This is the "Nuclear Option" for finding the right spot
     const likeBtns = document.querySelectorAll('button[aria-label^="Like"], button[aria-label^="React"]');
     if (likeBtns.length > 0) {
-      console.log(`found ${likeBtns.length} like buttons, trying to find parents...`);
+      console.log('LinkedIn Comment Helper: using fallback like/react buttons');
       likeBtns.forEach(btn => {
-        const parent = btn.parentElement.parentElement; // Go up to the row
-        if (parent) processBar(parent);
+        const parent = btn.parentElement && btn.parentElement.parentElement;
+        if (parent) {
+          processBar(parent);
+        }
       });
     }
     return;
   }
-
-  // Process standard bars
   bars.forEach(processBar);
 }
 
 function processBar(bar) {
-  // Stop if we already added a button here
   if (bar.querySelector('.linkedin-comment-helper-btn')) return;
 
   // Create the button
@@ -45,18 +111,15 @@ function processBar(bar) {
   btn.style.padding = '5px 12px';
   btn.style.cursor = 'pointer';
 
-  // Find the post text container relative to this bar
-  const post = bar.closest('div[data-urn]') || bar.closest('.feed-shared-update-v2');
+  const post = findPostContainerFromBar(bar);
 
   btn.onclick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     
-    const textEl = post ? post.querySelector('.update-components-text span, .feed-shared-update-v2__description-text') : null;
-    const text = textEl ? textEl.innerText : "";
-    
+    const text = getPostTextFromContainer(post);
     if (!text) {
-      alert('Error: Could not read post text');
+      showNotification('Could not read LinkedIn post text', 'error');
       return;
     }
     
@@ -67,18 +130,35 @@ function processBar(bar) {
         action: 'generateComment',
         postContent: text
       });
-      if (response.error) throw new Error(response.error);
-      
-      await navigator.clipboard.writeText(response.comment);
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      const comment = response.comment || '';
+      if (!comment || typeof comment !== 'string') {
+        throw new Error('AI returned an empty comment. Try again or adjust your settings.');
+      }
+      const words = comment.split(/\s+/).filter(Boolean);
+      const wordCount = words.length;
+      const targetMin = 18;
+      const targetMax = 22;
+      let finalComment = comment.trim();
+      if (wordCount > targetMax) {
+        finalComment = words.slice(0, targetMax).join(' ');
+      }
+      await navigator.clipboard.writeText(finalComment);
       btn.innerText = '✅ ';
-      
-      // Open comment box
       const commentBtn = bar.querySelector('button[aria-label*="omment"]');
-      if(commentBtn) commentBtn.click();
-      
+      if (commentBtn) {
+        commentBtn.click();
+      }
+      if (wordCount < targetMin || wordCount > targetMax) {
+        showNotification('Comment is ' + wordCount + ' words. Target is 18-22. It was adjusted slightly.', 'info');
+      } else {
+        showNotification('AI comment copied to clipboard', 'success');
+      }
     } catch (err) {
-      alert('Failed: ' + err.message);
       btn.innerText = '❌ Error';
+      showNotification(err.message || 'Failed to generate comment', 'error');
     }
     
     setTimeout(() => btn.innerHTML = '<span>✨ </span>', 3000);
