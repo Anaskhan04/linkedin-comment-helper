@@ -12,7 +12,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleGenerateComment(postContent) {
-  const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel', 'systemPrompt']);
+  const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel', 'systemPrompt', 'styleMode']);
   
   const MY_API_KEY = "";
   const DEFAULT_MODEL = "gemini-2.5-flash";
@@ -29,6 +29,16 @@ async function handleGenerateComment(postContent) {
 
   const storedPrompt = typeof result.systemPrompt === 'string' ? result.systemPrompt.trim() : '';
   const systemPrompt = storedPrompt.length > 0 ? storedPrompt : DEFAULT_PROMPT;
+  const styleMode = typeof result.styleMode === 'string' ? result.styleMode : 'balanced';
+  let styleInstruction = '';
+  if (styleMode === 'casual') {
+    styleInstruction = 'Use a slightly more casual, conversational LinkedIn tone while staying professional.';
+  } else if (styleMode === 'formal') {
+    styleInstruction = 'Use a more formal, polished LinkedIn tone suitable for corporate audiences.';
+  } else if (styleMode === 'technical') {
+    styleInstruction = 'Focus on technical depth and specific insights when appropriate, assuming a knowledgeable audience.';
+  }
+  const finalSystemPrompt = styleInstruction ? systemPrompt + ' ' + styleInstruction : systemPrompt;
 
   try {
     let finalUrl, requestBody, headers = { 'Content-Type': 'application/json' };
@@ -39,7 +49,7 @@ async function handleGenerateComment(postContent) {
       const baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/";
       finalUrl = `${baseUrl}${model}:generateContent?key=${apiKey}`;
       requestBody = {
-        contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\nPost:\n" + postContent }] }]
+        contents: [{ role: 'user', parts: [{ text: finalSystemPrompt + "\n\nPost:\n" + postContent }] }]
       };
     } else {
       // OpenAI Logic
@@ -48,7 +58,7 @@ async function handleGenerateComment(postContent) {
       requestBody = {
         model: model,
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: finalSystemPrompt },
           { role: 'user', content: postContent }
         ]
       };

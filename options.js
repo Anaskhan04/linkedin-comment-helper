@@ -5,7 +5,7 @@ const successAlert = document.getElementById('successAlert');
 const errorAlert = document.getElementById('errorAlert');
 
 async function loadSettings() {
-  const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel', 'systemPrompt']);
+  const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel', 'systemPrompt', 'styleMode']);
   
   if (result.apiKey) {
     document.getElementById('apiKey').value = result.apiKey;
@@ -19,6 +19,7 @@ async function loadSettings() {
   if (result.systemPrompt) {
     document.getElementById('systemPrompt').value = result.systemPrompt;
   }
+  document.getElementById('styleMode').value = result.styleMode || 'balanced';
 }
 
 form.addEventListener('submit', async (e) => {
@@ -28,6 +29,7 @@ form.addEventListener('submit', async (e) => {
   const apiEndpoint = document.getElementById('apiEndpoint').value.trim();
   const apiModel = document.getElementById('apiModel').value;
   const systemPrompt = document.getElementById('systemPrompt').value.trim();
+  const styleMode = document.getElementById('styleMode').value;
   
   if (!apiKey) {
     showError();
@@ -38,7 +40,8 @@ form.addEventListener('submit', async (e) => {
     apiKey: apiKey,
     apiEndpoint: apiEndpoint,
     apiModel: apiModel,
-    systemPrompt: systemPrompt
+    systemPrompt: systemPrompt,
+    styleMode: styleMode
   });
   
   showSuccess();

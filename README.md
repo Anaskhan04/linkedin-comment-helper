@@ -81,6 +81,10 @@ For other providers:
 - You can optionally set your own default prompt in the extension settings
 - Leave it empty to use the built-in LinkedIn comment prompt
 
+### Comment Style
+- Choose between Balanced, Casual, Formal, or Technical tone in settings
+- The selected style adds extra guidance on top of the default prompt
+
 ## 📝 Comment Generation Rules
 
 The extension follows strict guidelines:

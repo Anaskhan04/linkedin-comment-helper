@@ -53,6 +53,17 @@
         </div>
 
         <div class="form-group">
+          <label for="styleMode">Comment Style</label>
+          <select id="styleMode">
+            <option value="balanced">Balanced (default)</option>
+            <option value="casual">More casual</option>
+            <option value="formal">More formal</option>
+            <option value="technical">More technical</option>
+          </select>
+          <p class="helper-text">Controls tone. Works together with your default prompt.</p>
+        </div>
+
+        <div class="form-group">
           <label for="systemPrompt">Default Prompt (optional)</label>
           <textarea id="systemPrompt" rows="5" placeholder="Leave empty to use the recommended default prompt for LinkedIn comments."></textarea>
           <p class="helper-text">Customize how the AI writes comments. If empty, the built-in prompt is used.</p>
