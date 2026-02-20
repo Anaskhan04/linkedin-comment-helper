@@ -15,15 +15,11 @@ async function handleGenerateComment(postContent) {
   // 1. GET SETTINGS (OR USE HARDCODED DEFAULTS)
   const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel']);
   
-  // --- HARDCODED CREDENTIALS FOR YOU ---
-  // If the user hasn't set a key in options, use this one automatically:
-  
-        const MY_API_KEY = ""; // User must provide their own key in Options
-//   const MY_MODEL = "gemini-2.5-flash";
-  // -------------------------------------
+  const MY_API_KEY = "";
+  const DEFAULT_MODEL = "gemini-2.5-flash";
 
   const apiKey = (result.apiKey || MY_API_KEY).trim();
-  const model = result.apiModel || MY_MODEL;
+  const model = (result.apiModel || DEFAULT_MODEL).trim();
   const savedEndpoint = result.apiEndpoint || 'https://generativelanguage.googleapis.com/v1beta/models:generateContent?key=';
 
   // Safety Check
@@ -68,7 +64,17 @@ async function handleGenerateComment(postContent) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error?.message || `API Error ${response.status}`);
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('Authentication failed. Check that your API key is valid and has access.');
+      }
+      if (response.status === 429) {
+        throw new Error('Rate limit or quota reached. Wait or adjust your model/provider usage.');
+      }
+      if (response.status >= 500) {
+        throw new Error('The AI provider is currently unavailable. Try again in a moment.');
+      }
+      const message = data && data.error && data.error.message ? data.error.message : '';
+      throw new Error(message || `API Error ${response.status}`);
     }
 
     // --- CRASH PROOF PARSER ---
