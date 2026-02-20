@@ -66,24 +66,23 @@ For alternative providers, you'll need to update the API endpoint in settings.
 ## ⚙️ Configuration Options
 
 ### API Endpoint
-Default: `https://api.openai.com/v1/chat/completions`
+Default (Gemini): `https://generativelanguage.googleapis.com/v1beta/models:generateContent?key=`
 
 For other providers:
-- **Gemini**: Update endpoint to Gemini API URL
+- **OpenAI-compatible**: Use the provider's chat completions URL
 - **Custom**: Any OpenAI-compatible endpoint
 
 ### Model Selection
-- **gpt-4o-mini** (Recommended): Fast, affordable, high quality
-- **gpt-4o**: More powerful but slower and more expensive
-- **gpt-4-turbo**: Good balance of speed and quality
-- **gpt-3.5-turbo**: Fastest and cheapest option
+- **gemini-2.5-flash** (Recommended): Fast, affordable, high quality
+- **gemini-2.5-pro**: Smarter but slower and more expensive
+- **gemini-2.0-flash**: Backup option
 
 ## 📝 Comment Generation Rules
 
 The extension follows strict guidelines:
 
 ✅ **Always:**
-- 10-16 words exactly
+- 18-22 words exactly
 - Match the post's tone (formal/casual/technical)
 - Add unique, valuable insights
 - Sound completely human and natural
@@ -139,7 +138,7 @@ If LinkedIn updates their layout and buttons stop appearing:
 
 ## 🆕 Updates
 
-This is v2.0.1. Future updates will be manual:
+This is v2.0.2. Future updates will be manual:
 1. Download new files
 2. Replace old files in your extension folder
 3. Go to chrome://extensions/
@@ -159,6 +158,6 @@ If you encounter issues:
 
 ---
 
-**Version**: 2.0.1  
+**Version**: 2.0.2  
 **Manifest Version**: 3  
 **Compatible with**: Chrome, Edge, Brave, and other Chromium browsers
