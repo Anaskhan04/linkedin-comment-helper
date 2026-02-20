@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Comment Helper",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Generate professional, AI-powered comments for LinkedIn posts",
   "permissions": [
     "storage",
