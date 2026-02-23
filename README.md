@@ -65,17 +65,20 @@ For alternative providers, you'll need to update the API endpoint in settings.
 
 ## ⚙️ Configuration Options
 
-### API Endpoint
-Default (Gemini): `https://generativelanguage.googleapis.com/v1beta/models:generateContent?key=`
+### Provider
+- Select Gemini, OpenAI, or Anthropic in the extension settings
 
-For other providers:
-- **OpenAI-compatible**: Use the provider's chat completions URL
-- **Custom**: Any OpenAI-compatible endpoint
+### API Endpoint
+- Gemini: `https://generativelanguage.googleapis.com/v1beta/models:generateContent?key=`
+- OpenAI: `https://api.openai.com/v1/chat/completions`
+- Anthropic: `https://api.anthropic.com/v1/messages`
+
+You can override the endpoint field for custom-compatible providers.
 
 ### Model Selection
-- **gemini-2.5-flash** (Recommended): Fast, affordable, high quality
-- **gemini-2.5-pro**: Smarter but slower and more expensive
-- **gemini-2.0-flash**: Backup option
+- Gemini: gemini-2.5-flash, gemini-2.5-pro, gemini-2.0-flash
+- OpenAI: gpt-4o-mini, gpt-4o, gpt-4.1-mini
+- Anthropic: claude-3-5-sonnet-latest, claude-3-opus-latest, claude-3-haiku-latest
 
 ### Custom Prompt
 - You can optionally set your own default prompt in the extension settings

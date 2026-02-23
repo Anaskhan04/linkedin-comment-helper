@@ -11,8 +11,86 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+const PROVIDERS = {
+  gemini: {
+    buildRequest: function (input) {
+      const urlBase = 'https://generativelanguage.googleapis.com/v1beta/models/';
+      const url = urlBase + input.model + ':generateContent?key=' + input.apiKey;
+      const headers = { 'Content-Type': 'application/json' };
+      const body = {
+        contents: [{ role: 'user', parts: [{ text: input.prompt + '\n\nPost:\n' + input.postContent }] }]
+      };
+      return { url, headers, body };
+    },
+    extractComment: function (data) {
+      if (data && data.candidates && data.candidates.length > 0) {
+        return data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text ? data.candidates[0].content.parts[0].text : '';
+      }
+      return '';
+    }
+  },
+  openai: {
+    buildRequest: function (input) {
+      const url = input.endpoint || 'https://api.openai.com/v1/chat/completions';
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + input.apiKey
+      };
+      const body = {
+        model: input.model,
+        messages: [
+          { role: 'system', content: input.prompt },
+          { role: 'user', content: input.postContent }
+        ]
+      };
+      return { url, headers, body };
+    },
+    extractComment: function (data) {
+      if (data && data.choices && data.choices.length > 0) {
+        return data.choices[0].message && data.choices[0].message.content ? data.choices[0].message.content : '';
+      }
+      return '';
+    }
+  },
+  anthropic: {
+    buildRequest: function (input) {
+      const url = input.endpoint || 'https://api.anthropic.com/v1/messages';
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': input.apiKey,
+        'anthropic-version': '2023-06-01'
+      };
+      const body = {
+        model: input.model,
+        max_tokens: 256,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: input.prompt + '\n\nPost:\n' + input.postContent
+              }
+            ]
+          }
+        ]
+      };
+      return { url, headers, body };
+    },
+    extractComment: function (data) {
+      if (data && data.content && data.content.length > 0) {
+        const first = data.content[0];
+        if (first && first.text) {
+          return first.text;
+        }
+      }
+      return '';
+    }
+  }
+};
+
 async function handleGenerateComment(postContent) {
-  const result = await chrome.storage.sync.get(['apiKey', 'apiEndpoint', 'apiModel', 'systemPrompt', 'styleMode']);
+  const result = await chrome.storage.sync.get(['provider', 'apiKey', 'apiEndpoint', 'apiModel', 'systemPrompt', 'styleMode']);
   
   const MY_API_KEY = "";
   const DEFAULT_MODEL = "gemini-2.5-flash";
@@ -20,7 +98,7 @@ async function handleGenerateComment(postContent) {
 
   const apiKey = (result.apiKey || MY_API_KEY).trim();
   const model = (result.apiModel || DEFAULT_MODEL).trim();
-  const savedEndpoint = result.apiEndpoint || 'https://generativelanguage.googleapis.com/v1beta/models:generateContent?key=';
+  const savedEndpoint = result.apiEndpoint || '';
 
   // Safety Check
   if (!apiKey) {
@@ -39,37 +117,24 @@ async function handleGenerateComment(postContent) {
     styleInstruction = 'Focus on technical depth and specific insights when appropriate, assuming a knowledgeable audience.';
   }
   const finalSystemPrompt = styleInstruction ? systemPrompt + ' ' + styleInstruction : systemPrompt;
+  const providerKey = typeof result.provider === 'string' ? result.provider : 'gemini';
+  const providerConfig = PROVIDERS[providerKey] || PROVIDERS.gemini;
 
   try {
-    let finalUrl, requestBody, headers = { 'Content-Type': 'application/json' };
+    const request = providerConfig.buildRequest({
+      model: model,
+      apiKey: apiKey,
+      endpoint: savedEndpoint,
+      prompt: finalSystemPrompt,
+      postContent: postContent
+    });
 
-    // --- CONFIGURATION ---
-    if (savedEndpoint.includes('googleapis.com')) {
-      // Gemini Logic
-      const baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/";
-      finalUrl = `${baseUrl}${model}:generateContent?key=${apiKey}`;
-      requestBody = {
-        contents: [{ role: 'user', parts: [{ text: finalSystemPrompt + "\n\nPost:\n" + postContent }] }]
-      };
-    } else {
-      // OpenAI Logic
-      finalUrl = savedEndpoint;
-      headers['Authorization'] = `Bearer ${apiKey}`;
-      requestBody = {
-        model: model,
-        messages: [
-          { role: 'system', content: finalSystemPrompt },
-          { role: 'user', content: postContent }
-        ]
-      };
-    }
+    console.log(`Sending request to ${model} using ${providerKey}...`);
 
-    console.log(`Sending request to ${model}...`);
-
-    const response = await fetch(finalUrl, {
+    const response = await fetch(request.url, {
       method: 'POST',
-      headers: headers,
-      body: JSON.stringify(requestBody)
+      headers: request.headers,
+      body: JSON.stringify(request.body)
     });
 
     const data = await response.json();
@@ -88,18 +153,14 @@ async function handleGenerateComment(postContent) {
       throw new Error(message || `API Error ${response.status}`);
     }
 
-    // --- CRASH PROOF PARSER ---
-    let comment = '';
-
-    if (data.candidates && data.candidates.length > 0) {
-      // Safe Gemini Parsing
-      comment = data.candidates[0].content?.parts?.[0]?.text || "Error parsing Gemini response";
-    } 
-    else if (data.choices && data.choices.length > 0) {
-      // Safe OpenAI Parsing
-      comment = data.choices[0].message?.content || "Error parsing OpenAI response";
-    } 
-    else {
+    let comment = providerConfig.extractComment(data);
+    if (!comment && data.candidates && data.candidates.length > 0) {
+      comment = data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text ? data.candidates[0].content.parts[0].text : '';
+    }
+    if (!comment && data.choices && data.choices.length > 0) {
+      comment = data.choices[0].message && data.choices[0].message.content ? data.choices[0].message.content : '';
+    }
+    if (!comment) {
       console.warn("Unexpected JSON structure:", data);
       throw new Error("AI returned an empty or blocked response.");
     }
