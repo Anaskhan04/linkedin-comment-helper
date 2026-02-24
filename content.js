@@ -77,6 +77,159 @@ function getPostTextFromContainer(container) {
   return '';
 }
 
+function findCommentEditable(root) {
+  const selectors = [
+    'div[contenteditable="true"][data-placeholder*="omment"]',
+    'div[contenteditable="true"][aria-label*="omment"]',
+    'div[contenteditable="true"][role="textbox"][aria-multiline="true"]',
+    'textarea[aria-label*="omment"]'
+  ];
+  for (let i = 0; i < selectors.length; i++) {
+    const el = root.querySelector(selectors[i]);
+    if (el) {
+      return el;
+    }
+  }
+  return null;
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function insertCommentIntoCommentBox(bar, text) {
+  if (!bar) {
+    return;
+  }
+  
+  // 1. Try to open the comment box if it's not open
+  const commentBtn = bar.querySelector('button[aria-label*="omment"]');
+  if (commentBtn) {
+    commentBtn.click();
+    await wait(500); // Wait for animation
+  }
+
+  // 2. Find the editable area
+  let root = bar.closest('div[data-urn], article') || bar;
+  let editable = findCommentEditable(root);
+  
+  // If not found in root, look in document but prioritize the one near the bar
+  if (!editable) {
+    const allEditables = document.querySelectorAll('div[contenteditable="true"]');
+    // Find the one closest to our bar in the DOM
+    let minDistance = Infinity;
+    allEditables.forEach(el => {
+      const rect1 = el.getBoundingClientRect();
+      const rect2 = bar.getBoundingClientRect();
+      const dist = Math.abs(rect1.top - rect2.top);
+      if (dist < minDistance) {
+        minDistance = dist;
+        editable = el;
+      }
+    });
+  }
+
+  if (!editable) {
+    showNotification('AI comment copied but comment box was not found', 'info');
+    return;
+  }
+
+  // 3. Insert text robustly
+  editable.focus();
+  
+  // Clear existing content first if needed
+  if (typeof editable.value === 'string') {
+    editable.value = '';
+    editable.value = text;
+  } else {
+    // For contenteditable, execCommand is much better as it triggers LinkedIn's internal state
+    try {
+      // Clear existing
+      document.execCommand('selectAll', false, null);
+      document.execCommand('delete', false, null);
+      // Insert new
+      document.execCommand('insertText', false, text);
+    } catch (e) {
+      console.warn('execCommand failed, falling back to innerText', e);
+      editable.innerText = text;
+    }
+  }
+
+  // Trigger events to make sure LinkedIn knows there is content
+  const events = ['input', 'change', 'blur'];
+  events.forEach(evtName => {
+    const evt = new Event(evtName, { bubbles: true });
+    editable.dispatchEvent(evt);
+  });
+
+  // 4. Find and click the submit button
+  await wait(1000); // Give it a full second to enable
+
+  const submitBtnSelectors = [
+    'button.comments-comment-box__submit-button',
+    'button[type="submit"].comments-comment-box__submit-button',
+    '.comments-comment-box__form-container button[type="submit"]',
+    '.comments-comment-box__footer button[type="submit"]',
+    'button.artdeco-button--primary.comments-comment-box__submit-button',
+    '.comments-comment-box__submit-button'
+  ];
+
+  let submitBtn = null;
+  // Try finding it within the form or container first
+  const container = editable.closest('.comments-comment-box__form-container') || 
+                  editable.closest('form') || 
+                  editable.closest('.comments-comment-box') ||
+                  editable.parentElement?.parentElement; // Immediate context
+
+  if (container) {
+    for (const selector of submitBtnSelectors) {
+      submitBtn = container.querySelector(selector);
+      if (submitBtn) break;
+    }
+  }
+
+  // Fallback to global search if not found in container
+  if (!submitBtn) {
+    for (const selector of submitBtnSelectors) {
+      submitBtn = root.querySelector(selector) || document.querySelector(selector);
+      if (submitBtn) break;
+    }
+  }
+
+  if (submitBtn) {
+    if (!submitBtn.disabled) {
+      console.log('LinkedIn Comment Helper: Clicking post button');
+      
+      // Use a more realistic click event
+      const clickEvent = new MouseEvent('click', {
+        view: window,
+        bubbles: true,
+        cancelable: true
+      });
+      submitBtn.dispatchEvent(clickEvent);
+      
+      showNotification('Comment posted automatically!', 'success');
+    } else {
+      console.log('LinkedIn Comment Helper: Post button found but disabled. Trying to force enable.');
+      // One last attempt to wake it up
+      editable.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+      await wait(100);
+      editable.dispatchEvent(new KeyboardEvent('keyup', { key: ' ' }));
+      await wait(500);
+      
+      if (!submitBtn.disabled) {
+        submitBtn.click();
+        showNotification('Comment posted automatically!', 'success');
+      } else {
+        showNotification('Comment inserted, but Post button is disabled. Please click it manually.', 'info');
+      }
+    }
+  } else {
+    console.log('LinkedIn Comment Helper: Post button not found');
+    showNotification('Comment inserted, but could not find the Post button.', 'info');
+  }
+}
+
 function injectButtons() {
   const bars = document.querySelectorAll('.feed-shared-social-action-bar, .social-actions-bar, .comment-social-bar');
   if (bars.length === 0) {
@@ -145,16 +298,17 @@ function processBar(bar) {
       if (wordCount > targetMax) {
         finalComment = words.slice(0, targetMax).join(' ');
       }
-      await navigator.clipboard.writeText(finalComment);
-      btn.innerText = '✅ ';
-      const commentBtn = bar.querySelector('button[aria-label*="omment"]');
-      if (commentBtn) {
-        commentBtn.click();
+      try {
+        await navigator.clipboard.writeText(finalComment);
+      } catch (clipboardError) {
+        console.warn('Clipboard write failed', clipboardError);
       }
+      btn.innerText = '✅ ';
+      await insertCommentIntoCommentBox(bar, finalComment);
       if (wordCount < targetMin || wordCount > targetMax) {
-        showNotification('Comment is ' + wordCount + ' words. Target is 18-22. It was adjusted slightly.', 'info');
+        showNotification('Comment is ' + wordCount + ' words. Target is 18-22. It was adjusted slightly and inserted.', 'info');
       } else {
-        showNotification('AI comment copied to clipboard', 'success');
+        showNotification('AI comment inserted into comment box', 'success');
       }
     } catch (err) {
       btn.innerText = '❌ Error';
