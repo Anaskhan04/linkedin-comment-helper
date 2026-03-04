@@ -45,36 +45,65 @@ function findPostContainerFromBar(bar) {
 }
 
 function getPostTextFromContainer(container) {
-  if (!container) {
-    return '';
-  }
-  const selectors = [
-    '.update-components-text span',
-    '.feed-shared-update-v2__description-text',
-    '[data-test-id="post-content"]',
-    'span.break-words',
-    'div[dir="ltr"] span',
-    'p[dir="ltr"]'
+  console.log('LCH [Debug]: Starting post text search from container:', container);
+
+  // More robust selectors for the text content itself
+  const textSelectors = [
+    '.update-components-text.relative .text-view-model', // A common pattern
+    '.update-components-text',                      // Generic text container
+    '.feed-shared-update-v2__description-wrapper', // Standard feed post
+    '.social-details-social-activity__commentary', // Another common one
+    'span[dir="ltr"]' // Fallback, but must be filtered well
   ];
-  for (let i = 0; i < selectors.length; i++) {
-    const el = container.querySelector(selectors[i]);
-    if (el && el.innerText && el.innerText.trim().length > 0) {
-      return el.innerText.trim();
+
+  // Find the top-level container for the post. This is the most critical part.
+  const postRoot = container.closest('.feed-shared-update-v2, .update-components-update-v2, [data-urn*=":activity:"], [data-urn*=":share:"]');
+
+  if (postRoot) {
+    console.log('LCH [Debug]: Found a potential post root:', postRoot);
+    for (const selector of textSelectors) {
+      // Find all elements matching the selector within the root
+      const elements = postRoot.querySelectorAll(selector);
+      for (const el of elements) {
+        // Ensure the element is visible and has meaningful text
+        if (el.offsetParent !== null && el.innerText && el.innerText.trim().length > 20) {
+          // Crucial check: ensure this text is not part of a comment thread within the same post
+          if (!el.closest('.comments-comment-item-container-width-limiter')) {
+            const foundText = el.innerText.trim();
+            console.log(`LCH [Debug]: Found valid text with selector "${selector}":`, foundText);
+            return foundText;
+          } else {
+            console.log(`LCH [Debug]: Rejected text because it was inside a comment thread:`, el.innerText.trim());
+          }
+        }
+      }
     }
+  } else {
+    console.log('LCH [Debug]: Could not find a post root container using .closest().');
   }
+
+  // Fallback: if the root search fails, revert to a simpler traversal.
+  // This is less precise but can catch edge cases.
+  console.log('LCH [Debug]: Post root search failed. Reverting to ancestor traversal fallback.');
   let current = container.parentElement;
   let depth = 0;
-  while (current && depth < 5) {
-    for (let i = 0; i < selectors.length; i++) {
-      const el = current.querySelector(selectors[i]);
-      if (el && el.innerText && el.innerText.trim().length > 0) {
-        return el.innerText.trim();
+  while (current && depth < 8) {
+    for (const selector of textSelectors) {
+      const el = current.querySelector(selector);
+      if (el && el.offsetParent !== null && el.innerText && el.innerText.trim().length > 20) {
+         if (!el.closest('.comments-comment-item-container-width-limiter')) {
+            const foundText = el.innerText.trim();
+            console.log(`LCH [Debug]: Found valid text with fallback selector "${selector}" at depth ${depth}:`, foundText);
+            return foundText;
+        }
       }
     }
     current = current.parentElement;
     depth++;
   }
-  return '';
+
+  console.error('LCH [Error]: Failed to find post text after all attempts.');
+  return null; // Return null if no text is found
 }
 
 function findCommentEditable(root) {
